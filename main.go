@@ -17,7 +17,7 @@ func main()  {
 	})
 	r.GET("/hello/a/b/c", func(c *gee.Context) {
 		// expect /hello?name=geektutu
-		c.String(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+		c.String(http.StatusOK, "hello  %s, you're at %s\n", c.Query("name"), c.Path)
 	})
 
 	r.GET("/hello/:name", func(c *gee.Context) {
