@@ -1,1 +1,3 @@
-module "Gee"
+module Gee
+
+go 1.14
