@@ -2,18 +2,29 @@ package gee
 
 import (
 	"net/http"
+	"strings"
 )
 
 type HandlerFunc func(*Context)
 
 type Engine struct {
+	*RouterGroup
+	groups []*RouterGroup
 	router *router
 }
 
+type RouterGroup struct {
+	prefix string
+	engine *Engine
+	middlewares []HandlerFunc // support middleware
+	parent      *RouterGroup  // support nesting
+}
+
 func New() *Engine  {
-	return &Engine{
-		router: newRouter(),
-	}
+	engine := &Engine{router: newRouter()}
+	engine.RouterGroup = &RouterGroup{engine:engine}
+	engine.groups = []*RouterGroup{engine.RouterGroup}
+	return engine
 }
 
 func (engine *Engine)addRoute(method,pattern string,handler HandlerFunc)  {
@@ -35,6 +46,43 @@ func (engine *Engine)Run(addr string) (err error)  {
 }
 
 func (engine *Engine)ServeHTTP(w http.ResponseWriter, req *http.Request)  {
-	engine.router.handle(newContext(w,req))
+	var midwares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path,group.prefix) {
+			midwares = append(midwares,group.middlewares...)
+		}
+	}
+	c := newContext(w,req)
+	c.Handlers = midwares
+	engine.router.handle(c)
+}
+
+func (group *RouterGroup)Group(prefix string) *RouterGroup  {
+	engine := group.engine
+	newGroup := &RouterGroup{
+		prefix: group.prefix + prefix,
+		parent: group,
+		engine: engine,
+	}
+	engine.groups = append(engine.groups,newGroup)
+	return newGroup
+}
+
+func (group *RouterGroup)Use(f ...HandlerFunc)  {
+	group.middlewares = append(group.middlewares,f...)
+}
+
+func (group *RouterGroup)addRoute(method,pattern string,handler HandlerFunc)  {
+	finalPattern := group.prefix + pattern
+	group.engine.router.addRoute(method,finalPattern,handler)
+}
+
+
+func (group *RouterGroup)GET(pattern string, handler HandlerFunc)  {
+	group.addRoute("GET",pattern,handler)
+}
+
+func (group *RouterGroup)POST(pattern string, handler HandlerFunc)  {
+	group.addRoute("POST",pattern,handler)
 }
 

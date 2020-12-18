@@ -3,6 +3,7 @@ package gee
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 )
 
@@ -13,6 +14,9 @@ type Context struct {
 	Path string
 	Method string
 	StatusCode int
+	
+	Handlers []HandlerFunc
+	index int
 }
 type H map[string]interface{}
 func newContext(w http.ResponseWriter,req *http.Request) *Context{
@@ -21,6 +25,8 @@ func newContext(w http.ResponseWriter,req *http.Request) *Context{
 		Req: req,
 		Path: req.URL.Path,
 		Method: req.Method,
+		Handlers: make([]HandlerFunc,0),
+		index: -1,
 	}
 }
 
@@ -70,4 +76,14 @@ func (c *Context) HTML(code int, html string) {
 	c.Writer.Write([]byte(html))
 }
 
+func (c *Context) Next() {
+	c.index++
+	for ;c.index < len(c.Handlers);c.index++{
+		c.Handlers[c.index](c)
+	}
+}
+
+func (c *Context) Abort() {
+	c.index = math.MaxInt8
+}
 
